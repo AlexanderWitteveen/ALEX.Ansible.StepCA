@@ -1,0 +1,59 @@
+---
+
+- name: Get stats of a file
+  ansible.builtin.stat:
+    path: ~/glrt
+  register: st
+
+- name: Create Runner Token
+  when: 'st.stat.exists == false'
+  block:
+    - name: Create runner
+      shell: |
+        curl --request POST "https://{{ args_gitlab_url }}/api/v4/runners" \
+         --form 'token={{ args_ansible_gitlab_token }}' --form "description={{ args_gitlab_runner_url }}" \
+         --form "tag_list=ALEX" 
+        # | jq -r ".token"
+      args:
+        executable: /bin/bash
+
+- name: configure runner
+  shell: |
+    gitlab-runner register \
+      --non-interactive \
+      --url "HTTPS://{{ args_gitlab_url }}" \
+      --registration-token "{{ args_gitlab_runnertoken }}" \
+      --description "ALEX Gitlab runner" \
+      --executor "shell"
+  args:
+    executable: /bin/bash
+
+- name: configure docker group membership
+  shell: |
+    #echo "Test"
+    if ( id -nG gitlab-runner | grep -qw "docker" ) ; then 
+      echo "member"
+    else
+      echo "not member"
+      usermod -a -G docker gitlab-runner
+    fi
+  args:
+    executable: /bin/bash
+  register: result
+  changed_when: '"not member" in result.stdout'
+
+- name: Create a directory if it does not exist
+  ansible.builtin.file:
+    path: /home/gitlab-runner/.docker
+    state: directory
+    owner: gitlab-runner
+    group: gitlab-runner
+    mode: '0755'
+
+- name: Copy docker config file
+  ansible.builtin.template:
+    src: "config.json.j2"
+    dest: "/home/gitlab-runner/.docker/config.json"
+    owner: gitlab-runner
+    group: gitlab-runner
+    mode: 0666

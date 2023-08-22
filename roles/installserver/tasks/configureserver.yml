@@ -1,0 +1,130 @@
+---
+
+- name: Check if cert present
+  shell: |
+    ls "/etc/gitlab/ssl/gitlab.cer" 2> /dev/null
+    if [ $? != "0" ] ; then
+      echo absent
+    fi
+  args:
+    executable: /bin/bash
+  register: certresult
+  changed_when: "false"
+  
+- name: Create keys, certificate
+  when: '"absent" in certresult.stdout'
+  block:
+    - name: Ensure gitlab ssl folder exists
+      file:
+        path: "/etc/gitlab/ssl"
+        state: directory
+        owner: root
+        group: root
+        mode: 0700
+
+    - name: Install a list of packages
+      apt:
+        deb: https://dl.step.sm/gh-release/cli/docs-ca-install/v0.23.1/step-cli_0.23.1_amd64.deb
+        state: present
+
+    - name: create key
+      shell: |
+        step crypto keypair \
+          "/etc/gitlab/ssl/gitlab.pub" \
+          "/etc/gitlab/ssl/gitlab.key" \
+          --kty=RSA \
+          --size=2048 \
+          --force --no-password --insecure
+      args:
+        executable: /bin/bash
+
+    - name: create certificate signing request
+      shell: |
+        step certificate create \
+          --csr \
+          --key "/etc/gitlab/ssl/gitlab.key" \
+          "Gitlab cert" \
+          "/etc/gitlab/ssl/gitlab.csr" \
+          --san {{ args_hostname }} \
+          --san {{ args_hostname }}.{{ args_dns_local }} \
+          --san {{ args_gitlab_url }} \
+          --san localhost \
+          --san {{ args_ipaddress }} \
+          --force
+      args:
+        executable: /bin/bash
+
+    - name: Copy CSR
+      ansible.builtin.fetch:
+        src: "/etc/gitlab/ssl/gitlab.csr"
+        dest: "/tmp/{{ args_hostname }}.gitlab.csr"
+        flat: yes
+
+    - name: Sign certificate
+      shell: |
+        step certificate sign \
+        "/tmp/{{ args_hostname }}.gitlab.csr" \
+        "{{ args_certificates_sources }}/{{ args_certificates_ca }}.cer" \
+        "{{ args_certificates_sources }}/{{ args_certificates_ca }}.key" \
+        --set CommonName={{ args_gitlab_url }} \
+        --template "{{ args_certificates_sources }}/{{ args_certificates_server_template }}" \
+        --set-file "{{ args_certificates_sources }}/{{ args_certificates_org_settings }}" \
+        --not-after 8766h \
+        --bundle > "/tmp/{{ args_hostname }}.gitlab.cer"
+      args:
+        executable: /bin/bash
+      connection: local
+
+    - name: Copy certificate
+      copy:
+        src: "/tmp/{{ args_hostname }}.gitlab.cer"
+        dest: "/etc/gitlab/ssl/gitlab.cer"
+        owner: root
+        group: root
+        mode: 0755
+
+- name: Copy profile file
+  ansible.builtin.template:
+    src: "gitlab.rb.j2"
+    dest: "/etc/gitlab/gitlab.rb"
+    owner: root
+    group: root
+    mode: 0600
+  register: profileresult
+#  notify: restart gitlab
+
+- name: restart conditionally
+  shell: |
+    gitlab-ctl reconfigure
+  args:
+    executable: /bin/bash
+  changed_when: "false"
+  when: '"absent" in certresult.stdout or profileresult.changed'
+
+- name: Display variables
+  ansible.builtin.debug:
+    var: profileresult
+
+- name: Copy rails file
+  ansible.builtin.template:
+    src: "configusers.rb.j2"
+    dest: "~/configusers.rb"
+    owner: root
+    group: root
+    mode: 0600
+  register: profileresult
+
+- name: Configure user
+  shell: |
+    cat ~/configusers.rb | gitlab-rails runner -
+  args:
+    executable: /bin/bash
+  changed_when: "false"
+
+- name: Test REST
+  shell: |
+    curl --header "PRIVATE-TOKEN: {{ args_ansible_gitlab_token }}" "https://{{ args_gitlab_url }}/api/v4/projects"
+    #curl "https://{{ args_gitlab_url }}/api/v4/projects"
+  args:
+    executable: /bin/bash
+  changed_when: "false"

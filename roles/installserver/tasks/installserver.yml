@@ -1,0 +1,47 @@
+---
+
+- name: Test gitlab installed
+  shell: gitlab-ctl status
+  args:
+    executable: /bin/bash
+  register: validateresult
+  changed_when: 'false'
+  failed_when: 'false'
+
+- name: Create keys, certificate
+  when: '"gitlab-ctl: command not found" in validateresult.stderr'
+  block:
+    - name: Install a list of packages
+      apt:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+        - ca-certificates
+        - curl
+        - openssh-server
+        - ca-certificates
+        - tzdata
+        - perl
+
+    - name: Install get repository
+      shell: 'curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ee/script.deb.sh | bash -'
+      args:
+        executable: /bin/bash
+
+    - name: Install a list of packages
+      apt:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+        - gitlab-ee
+
+#    - name: Config
+#      shell: |
+#        echo "gitlab_rails['initial_root_password'] = 'xxyyaabbcc'" > /etc/gitlab/gitlab.rb
+#        gitlab-ctl reconfigure
+#      args:
+#        executable: /bin/bash
+
+

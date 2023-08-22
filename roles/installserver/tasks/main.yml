@@ -1,0 +1,5 @@
+---
+
+- include_tasks: installserver.yml
+
+- include_tasks: configureserver.yml

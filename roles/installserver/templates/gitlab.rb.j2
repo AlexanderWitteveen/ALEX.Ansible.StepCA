@@ -1,0 +1,15 @@
+external_url 'https://{{ args_gitlab_url }}'
+
+nginx['redirect_http_to_https'] = true
+nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab.cer"
+nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab.key"
+
+registry_external_url 'https://{{ args_gitlab_url }}:5050'
+
+registry_nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab.cer"
+registry_nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab.key"
+
+gitlab_rails['registry_enabled'] = true
+gitlab_rails['registry_host'] = "gitlab.alex.loc"
+gitlab_rails['registry_port'] = "5050"
+gitlab_rails['registry_path'] = "/var/opt/gitlab/gitlab-rails/shared/registry"

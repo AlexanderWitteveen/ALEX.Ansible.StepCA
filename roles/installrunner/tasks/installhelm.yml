@@ -1,0 +1,29 @@
+---
+
+- name: Install a list of packages
+  apt:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+    - apt-transport-https
+    - curl
+
+- name: Download keyring
+  shell: curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | tee /usr/share/keyrings/helm.gpg > /dev/null
+  args:
+    executable: /bin/bash
+
+- name: Add apt source
+  shell: echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list
+  args:
+    executable: /bin/bash
+
+- name: Install a list of packages
+  apt:
+    name: "{{ packages }}"
+    state: present
+    update_cache: yes
+  vars:
+    packages:
+    - helm

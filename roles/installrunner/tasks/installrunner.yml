@@ -1,0 +1,16 @@
+---
+
+- name: install gitlab repository
+  shell: curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | sudo bash
+  args:
+    executable: /bin/bash
+
+- name: Install a list of packages
+  apt:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+    - gitlab-runner
+    - jq
+

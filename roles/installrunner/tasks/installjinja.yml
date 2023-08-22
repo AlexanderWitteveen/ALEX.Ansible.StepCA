@@ -1,0 +1,13 @@
+---
+
+- name: Install a list of packages
+  apt:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+    - pip
+
+- name: Install jinja2-cli python package
+  ansible.builtin.pip:
+    name: jinja2-cli

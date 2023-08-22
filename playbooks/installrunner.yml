@@ -1,0 +1,17 @@
+---
+
+- name: "Playbook: Install Gitlab runner"
+  hosts: "{{ args_host }}"
+  gather_facts: true
+  become: true
+  vars:
+    ansible_host: "{{ args_ipaddress }}"
+
+  vars_files:
+    - /etc/ansible/inventory/vars.yml
+
+  roles:
+    - alex.ms.installdotnet
+    - alex.docker.install
+    - alex.gitlab.installrunner
+    - alex.k3s.getkubeconfig

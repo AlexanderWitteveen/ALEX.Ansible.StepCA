@@ -1,0 +1,15 @@
+---
+
+- name: "Playbook: Install Gitlab server"
+  hosts: "{{ args_host }}"
+  gather_facts: true
+  become: true
+  vars:
+    ansible_host: "{{ args_ipaddress }}"
+
+  vars_files:
+    - /etc/ansible/inventory/vars.yml
+
+  roles:
+    - alex.gitlab.installserver
+    
